@@ -1,0 +1,41 @@
+{
+  "common": {
+    "loading": "로딩 중...",
+    "save": "저장",
+    "cancel": "취소",
+    "delete": "삭제",
+    "edit": "수정",
+    "create": "생성",
+    "close": "닫기",
+    "login": "로그인",
+    "logout": "로그아웃"
+  },
+  "nav": {
+    "map": "지도",
+    "board": "대자보",
+    "stories": "소식",
+    "login": "로그인"
+  },
+  "map": {
+    "title": "마을 한눈에 보기",
+    "subtitle": "카테고리를 선택하고 지도에서 원하는 장소를 찾아보세요",
+    "all": "전체",
+    "loading": "지도를 불러오는 중...",
+    "myLocation": "내 위치",
+    "locating": "위치 확인 중...",
+    "locationActive": "현재 위치 표시 중",
+    "locationDenied": "위치 권한 필요",
+    "outsideArea": "헤이리 밖에 계세요"
+  },
+  "board": {
+    "title": "헤이리 대자보",
+    "subtitle": "마을 소식과 이벤트를 확인하세요",
+    "empty": "아직 게시된 글이 없습니다",
+    "emptyDesc": "상점 주인이 소식을 올리면 여기에 표시됩니다"
+  },
+  "stories": {
+    "title": "오늘의 소식",
+    "empty": "아직 오늘의 소식이 없어요",
+    "emptyDesc": "상점의 새로운 소식이 올라오면 여기에 표시됩니다"
+  }
+}

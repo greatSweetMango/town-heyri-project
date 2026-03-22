@@ -8,11 +8,24 @@ import {
   useTransform,
   useInView,
 } from "framer-motion";
-import { Category, CATEGORY_CONFIG } from "@/types";
-import { stores } from "@/data/stores";
+import { Category, CATEGORY_CONFIG, StoreWithEvents } from "@/types";
+import { useStores } from "@/hooks/useStores";
+import { useFeatureFlags } from "@/hooks/useFeatureFlags";
 import CategoryFilter from "@/components/CategoryFilter";
+import AnnouncementBanner from "@/components/AnnouncementBanner";
 
 const InteractiveMap = dynamic(() => import("@/components/InteractiveMap"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex items-center justify-center rounded-2xl glass" style={{ height: "80vh", minHeight: "500px" }}>
+      <p className="text-[var(--color-sand)] animate-pulse-soft">
+        지도를 불러오는 중...
+      </p>
+    </div>
+  ),
+});
+
+const KakaoMap = dynamic(() => import("@/components/KakaoMap"), {
   ssr: false,
   loading: () => (
     <div className="flex items-center justify-center rounded-2xl glass" style={{ height: "80vh", minHeight: "500px" }}>
@@ -201,14 +214,14 @@ function SectionReveal({
 }
 
 /* ───── Map Section ───── */
-function MapSection() {
-  const [selectedCategory, setSelectedCategory] = useState<Category | null>(
-    null
-  );
+function MapSection({ stores }: { stores: StoreWithEvents[] }) {
+  const [selectedCategories, setSelectedCategories] = useState<Category[]>([]);
+  const { isEnabled } = useFeatureFlags();
+  const useKakaoMap = isEnabled("kakao_map");
 
   const handleCategoryChange = useCallback(
-    (category: Category | null) => {
-      setSelectedCategory(category);
+    (categories: Category[]) => {
+      setSelectedCategories(categories);
     },
     []
   );
@@ -226,13 +239,24 @@ function MapSection() {
         <div className="mb-6">
           <CategoryFilter
             onCategoryChange={handleCategoryChange}
-            activeCategory={selectedCategory}
+            activeCategories={selectedCategories}
           />
         </div>
 
-        {/* InteractiveMap — 3D rotatable map */}
+        {/* Map — switches between illustration 3D map and Kakao Map */}
         <div className="overflow-hidden rounded-2xl">
-          <InteractiveMap />
+          {useKakaoMap ? (
+            <KakaoMap
+              stores={stores}
+              allStores={stores}
+              selectedCategories={selectedCategories}
+            />
+          ) : (
+            <InteractiveMap
+              stores={stores}
+              selectedCategories={selectedCategories}
+            />
+          )}
         </div>
       </div>
     </SectionReveal>
@@ -240,7 +264,7 @@ function MapSection() {
 }
 
 /* ───── Categories Section ───── */
-function CategoriesSection() {
+function CategoriesSection({ stores }: { stores: StoreWithEvents[] }) {
   const ref = useRef<HTMLDivElement>(null);
   const isInView = useInView(ref, { once: true, margin: "-60px" });
 
@@ -250,7 +274,7 @@ function CategoriesSection() {
       counts[store.category] = (counts[store.category] || 0) + 1;
     }
     return counts;
-  }, []);
+  }, [stores]);
 
   const entries = Object.entries(CATEGORY_CONFIG) as [
     Category,
@@ -308,13 +332,13 @@ function CategoriesSection() {
 }
 
 /* ───── Story / Docent Section ───── */
-function StorySection() {
+function StorySection({ stores }: { stores: StoreWithEvents[] }) {
   const ref = useRef<HTMLDivElement>(null);
   const isInView = useInView(ref, { once: true, margin: "-60px" });
 
   const storyStores = useMemo(
     () => stores.filter((s) => s.story),
-    []
+    [stores]
   );
 
   return (
@@ -415,12 +439,15 @@ function Footer() {
 
 /* ───── Main Page ───── */
 export default function Home() {
+  const { stores, isLoading } = useStores();
+
   return (
     <main className="min-h-screen">
+      <AnnouncementBanner />
       <HeroSection />
-      <MapSection />
-      <CategoriesSection />
-      <StorySection />
+      <MapSection stores={stores} />
+      <CategoriesSection stores={stores} />
+      <StorySection stores={stores} />
       <Footer />
     </main>
   );

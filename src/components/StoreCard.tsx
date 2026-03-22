@@ -1,11 +1,11 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Store, CATEGORY_CONFIG } from "@/types";
+import { StoreWithEvents, CATEGORY_CONFIG } from "@/types";
 import { cn } from "@/lib/utils";
 
 interface StoreCardProps {
-  store: Store;
+  store: StoreWithEvents;
   onClick?: () => void;
   variant?: "default" | "compact" | "featured";
 }

@@ -1,11 +1,11 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import type { Store } from "@/types";
+import type { StoreWithEvents } from "@/types";
 import { CATEGORY_CONFIG } from "@/types";
 
 interface MapTooltipProps {
-  store: Store | null;
+  store: StoreWithEvents | null;
   screenPosition: { x: number; y: number } | null;
 }
 

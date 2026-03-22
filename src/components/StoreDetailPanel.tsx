@@ -2,18 +2,19 @@
 
 import { useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence, useDragControls } from "framer-motion";
-import { Store, CATEGORY_CONFIG } from "@/types";
-import { stores as allStores } from "@/data/stores";
+import { StoreWithEvents, CATEGORY_CONFIG } from "@/types";
 import NearbyStores from "./NearbyStores";
 
 interface StoreDetailPanelProps {
-  store: Store | null;
+  store: StoreWithEvents | null;
+  allStores: StoreWithEvents[];
   onClose: () => void;
-  onStoreSelect?: (store: Store) => void;
+  onStoreSelect?: (store: StoreWithEvents) => void;
 }
 
 export default function StoreDetailPanel({
   store,
+  allStores,
   onClose,
   onStoreSelect,
 }: StoreDetailPanelProps) {
@@ -28,6 +29,17 @@ export default function StoreDetailPanel({
     },
     [onClose]
   );
+
+  // Track store views
+  useEffect(() => {
+    if (store) {
+      fetch("/api/views", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "store", storeId: store.id }),
+      }).catch(() => {});
+    }
+  }, [store]);
 
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
@@ -72,6 +84,7 @@ export default function StoreDetailPanel({
           >
             <PanelContent
               store={store}
+              allStores={allStores}
               onClose={onClose}
               onStoreSelect={onStoreSelect}
             />
@@ -105,6 +118,7 @@ export default function StoreDetailPanel({
             </div>
             <PanelContent
               store={store}
+              allStores={allStores}
               onClose={onClose}
               onStoreSelect={onStoreSelect}
             />
@@ -119,12 +133,14 @@ export default function StoreDetailPanel({
 
 function PanelContent({
   store,
+  allStores,
   onClose,
   onStoreSelect,
 }: {
-  store: Store;
+  store: StoreWithEvents;
+  allStores: StoreWithEvents[];
   onClose: () => void;
-  onStoreSelect?: (store: Store) => void;
+  onStoreSelect?: (store: StoreWithEvents) => void;
 }) {
   const config = CATEGORY_CONFIG[store.category];
 
@@ -136,15 +152,27 @@ function PanelContent({
           <h2 className="text-2xl font-extrabold text-stone-800 dark:text-stone-100 leading-tight">
             {store.name}
           </h2>
-          <span
-            className="inline-flex items-center gap-1 mt-1.5 text-xs font-semibold px-2.5 py-1 rounded-full"
-            style={{
-              backgroundColor: `${config.color}18`,
-              color: config.color,
-            }}
-          >
-            {config.icon} {config.label}
-          </span>
+          <div className="flex items-center gap-2 mt-1.5">
+            <span
+              className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full"
+              style={{
+                backgroundColor: `${config.color}18`,
+                color: config.color,
+              }}
+            >
+              {config.icon} {config.label}
+            </span>
+            {!store.isOpen && (
+              <span className="inline-flex items-center text-xs font-semibold px-2.5 py-1 rounded-full bg-gray-200 text-gray-500">
+                영업 종료
+              </span>
+            )}
+            {store.hasActiveEvent && (
+              <span className="inline-flex items-center text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-100 text-amber-700">
+                이벤트 진행중
+              </span>
+            )}
+          </div>
         </div>
         <button
           onClick={onClose}
@@ -182,6 +210,30 @@ function PanelContent({
             {store.story}
           </p>
         </motion.div>
+      )}
+
+      {/* Active events */}
+      {store.events.length > 0 && (
+        <div className="space-y-2">
+          <h3 className="text-xs font-bold text-amber-700 dark:text-amber-400 tracking-wide uppercase">
+            진행중인 이벤트
+          </h3>
+          {store.events.map((event) => (
+            <div
+              key={event.id}
+              className="rounded-xl p-3 bg-amber-50/50 dark:bg-amber-900/10 border border-amber-200/30 dark:border-amber-800/20"
+            >
+              <p className="text-sm font-semibold text-stone-700 dark:text-stone-200">
+                {event.title}
+              </p>
+              {event.description && (
+                <p className="text-xs text-stone-500 dark:text-stone-400 mt-1">
+                  {event.description}
+                </p>
+              )}
+            </div>
+          ))}
+        </div>
       )}
 
       {/* Tags */}

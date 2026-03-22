@@ -1,15 +1,15 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Store } from "@/types";
+import { StoreWithEvents } from "@/types";
 import { getNearbyStores, getDistance, getWalkingTime } from "@/lib/utils";
 import StoreCard from "./StoreCard";
 
 interface NearbyStoresProps {
-  currentStore: Store;
-  stores: Store[];
+  currentStore: StoreWithEvents;
+  stores: StoreWithEvents[];
   limit?: number;
-  onStoreClick?: (store: Store) => void;
+  onStoreClick?: (store: StoreWithEvents) => void;
 }
 
 export default function NearbyStores({
@@ -33,7 +33,10 @@ export default function NearbyStores({
       </h4>
       <div className="flex flex-col gap-2.5">
         {nearby.map((store, index) => {
-          const distance = getDistance(currentStore.position, store.position);
+          const distance = getDistance(
+            { x: currentStore.positionX, y: currentStore.positionY },
+            { x: store.positionX, y: store.positionY }
+          );
           const walkMin = getWalkingTime(distance);
 
           return (

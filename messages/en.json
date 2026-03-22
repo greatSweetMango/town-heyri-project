@@ -1,0 +1,41 @@
+{
+  "common": {
+    "loading": "Loading...",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "create": "Create",
+    "close": "Close",
+    "login": "Login",
+    "logout": "Logout"
+  },
+  "nav": {
+    "map": "Map",
+    "board": "Board",
+    "stories": "Stories",
+    "login": "Login"
+  },
+  "map": {
+    "title": "Village at a Glance",
+    "subtitle": "Select a category and find places on the map",
+    "all": "All",
+    "loading": "Loading map...",
+    "myLocation": "My Location",
+    "locating": "Locating...",
+    "locationActive": "Showing current location",
+    "locationDenied": "Location permission required",
+    "outsideArea": "You're outside Heyri"
+  },
+  "board": {
+    "title": "Heyri Board",
+    "subtitle": "Check village news and events",
+    "empty": "No posts yet",
+    "emptyDesc": "Posts from shop owners will appear here"
+  },
+  "stories": {
+    "title": "Today's Stories",
+    "empty": "No stories today",
+    "emptyDesc": "New stories from shops will appear here"
+  }
+}

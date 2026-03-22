@@ -1,0 +1,156 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  ADMIN
+  SHOP_OWNER
+}
+
+model User {
+  id         String      @id @default(cuid())
+  email      String      @unique
+  password   String
+  name       String?
+  role       Role
+  storeId    String?     @unique
+  store      Store?      @relation("StoreOwner", fields: [storeId], references: [id])
+  boardPosts BoardPost[]
+  stories    Story[]
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+}
+
+model Store {
+  id          String      @id @default(cuid())
+  name        String
+  category    String
+  description String
+  story       String?
+  image       String?
+  positionX   Float
+  positionY   Float
+  tags        String[]
+  openHours   String?
+  phone       String?
+  isOpen      Boolean     @default(true)
+  owner       User?       @relation("StoreOwner")
+  events      Event[]
+  boardPosts  BoardPost[]
+  stories     Story[]
+  coupons     Coupon[]
+  storeViews  StoreView[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+model Event {
+  id          String   @id @default(cuid())
+  storeId     String
+  store       Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  category    String?
+  startDate   DateTime
+  endDate     DateTime
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+}
+
+model BoardPost {
+  id        String   @id @default(cuid())
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  storeId   String?
+  store     Store?   @relation(fields: [storeId], references: [id], onDelete: SetNull)
+  title     String
+  content   String
+  category  String?
+  images    String[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Story {
+  id        String   @id @default(cuid())
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  storeId   String
+  store     Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  image     String?
+  text      String?
+  category  String?
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+}
+
+model Coupon {
+  id          String   @id @default(cuid())
+  storeId     String
+  store       Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  discount    String
+  validUntil  DateTime
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+}
+
+model Announcement {
+  id        String   @id @default(cuid())
+  title     String
+  content   String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model FeatureFlag {
+  id          String  @id @default(cuid())
+  name        String  @unique
+  enabled     Boolean @default(false)
+  description String?
+}
+
+model Trail {
+  id        String   @id @default(cuid())
+  name      String
+  points    Json
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+model Gate {
+  id          String  @id @default(cuid())
+  name        String
+  positionX   Float
+  positionY   Float
+  description String?
+}
+
+model Pin {
+  id          String   @id @default(cuid())
+  name        String
+  category    String
+  positionX   Float
+  positionY   Float
+  description String?
+  createdAt   DateTime @default(now())
+}
+
+model PageView {
+  id        String   @id @default(cuid())
+  page      String
+  createdAt DateTime @default(now())
+}
+
+model StoreView {
+  id        String   @id @default(cuid())
+  storeId   String
+  store     Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}

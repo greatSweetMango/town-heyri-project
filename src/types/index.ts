@@ -21,6 +21,66 @@ export interface Store {
   phone?: string;
 }
 
+/** Event as returned by the API (active events included with store) */
+export interface StoreEvent {
+  id: string;
+  storeId: string;
+  title: string;
+  description?: string | null;
+  category?: string | null;
+  startDate: string;
+  endDate: string;
+  isActive: boolean;
+  createdAt: string;
+}
+
+/** Store shape as returned from `/api/stores` (DB fields + included events) */
+export interface StoreWithEvents {
+  id: string;
+  name: string;
+  category: Category;
+  description: string;
+  story?: string | null;
+  image?: string | null;
+  positionX: number;
+  positionY: number;
+  tags: string[];
+  openHours?: string | null;
+  phone?: string | null;
+  isOpen: boolean;
+  events: StoreEvent[];
+  /** Computed client-side */
+  hasActiveEvent: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+/** Map a DB-shaped store response to StoreWithEvents (adds hasActiveEvent) */
+export function toStoreWithEvents(
+  raw: Omit<StoreWithEvents, "hasActiveEvent">
+): StoreWithEvents {
+  return {
+    ...raw,
+    hasActiveEvent: raw.events.length > 0,
+  };
+}
+
+/** Convert StoreWithEvents to legacy Store shape (for components that still use it) */
+export function toLegacyStore(s: StoreWithEvents): Store {
+  return {
+    id: s.id,
+    name: s.name,
+    category: s.category,
+    description: s.description,
+    story: s.story ?? undefined,
+    image: s.image ?? undefined,
+    position: { x: s.positionX, y: s.positionY },
+    tags: s.tags,
+    openHours: s.openHours ?? undefined,
+    phone: s.phone ?? undefined,
+  };
+}
+
 export const CATEGORY_CONFIG: Record<
   Category,
   { label: string; color: string; icon: string }

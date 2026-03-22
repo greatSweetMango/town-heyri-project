@@ -5,12 +5,15 @@ import { Canvas, useLoader } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
 import dynamic from "next/dynamic";
-import type { Store } from "@/types";
-import { stores } from "@/data/stores";
+import type { StoreWithEvents, Category } from "@/types";
 import { gpsToMapPosition } from "@/lib/utils";
+import { useFeatureFlags } from "@/hooks/useFeatureFlags";
 import MapMarker from "./MapMarker";
 import MapTooltip from "./MapTooltip";
 import CurrentLocationMarker from "./CurrentLocationMarker";
+import MapGate from "./MapGate";
+import MapTrail from "./MapTrail";
+import MapPin from "./MapPin";
 
 // Map plane dimensions — the map lies flat on the XZ plane
 const MAP_WIDTH = 24;
@@ -34,15 +37,32 @@ function MapPlane() {
   );
 }
 
+interface GateData { id: string; name: string; positionX: number; positionY: number; description: string | null; }
+interface TrailData { id: string; name: string; points: { x: number; y: number }[]; isActive: boolean; }
+interface PinData { id: string; name: string; category: string; positionX: number; positionY: number; description: string | null; }
+
 // Scene
 interface SceneProps {
-  onHover: (store: Store | null, screenPos: { x: number; y: number } | null) => void;
-  onSelect: (store: Store) => void;
-  selectedStore: Store | null;
+  stores: StoreWithEvents[];
+  selectedCategories: Category[];
+  gates: GateData[];
+  trails: TrailData[];
+  pins: PinData[];
+  showGates: boolean;
+  showTrails: boolean;
+  onHover: (store: StoreWithEvents | null, screenPos: { x: number; y: number } | null) => void;
+  onSelect: (store: StoreWithEvents) => void;
+  selectedStore: StoreWithEvents | null;
   userPosition: { x: number; y: number } | null;
 }
 
-function Scene({ onHover, onSelect, selectedStore, userPosition }: SceneProps) {
+function Scene({ stores, selectedCategories, gates, trails, pins, showGates, showTrails, onHover, onSelect, selectedStore, userPosition }: SceneProps) {
+  // Filter stores based on selected categories (empty = show all)
+  const filteredStores =
+    selectedCategories.length === 0
+      ? stores
+      : stores.filter((s) => selectedCategories.includes(s.category));
+
   return (
     <>
       <ambientLight intensity={0.7} />
@@ -85,7 +105,7 @@ function Scene({ onHover, onSelect, selectedStore, userPosition }: SceneProps) {
       </mesh>
 
       {/* Store markers */}
-      {stores.map((store) => (
+      {filteredStores.map((store) => (
         <MapMarker
           key={store.id}
           store={store}
@@ -94,7 +114,24 @@ function Scene({ onHover, onSelect, selectedStore, userPosition }: SceneProps) {
           onHover={onHover}
           onClick={onSelect}
           isSelected={selectedStore?.id === store.id}
+          isOpen={store.isOpen}
+          hasActiveEvent={store.hasActiveEvent}
         />
+      ))}
+
+      {/* Gates */}
+      {showGates && gates.map((gate) => (
+        <MapGate key={gate.id} gate={gate} mapWidth={MAP_WIDTH} mapHeight={MAP_HEIGHT} />
+      ))}
+
+      {/* Trails */}
+      {showTrails && trails.map((trail) => (
+        <MapTrail key={trail.id} trail={trail} mapWidth={MAP_WIDTH} mapHeight={MAP_HEIGHT} />
+      ))}
+
+      {/* Facility pins */}
+      {pins.map((pin) => (
+        <MapPin key={pin.id} pin={pin} mapWidth={MAP_WIDTH} mapHeight={MAP_HEIGHT} />
       ))}
 
       {/* Current location */}
@@ -162,22 +199,45 @@ function useCurrentLocation() {
   return { position, status, requestLocation };
 }
 
+// Props for the exported component
+interface InteractiveMapProps {
+  stores: StoreWithEvents[];
+  selectedCategories: Category[];
+}
+
+// Hook to fetch map overlay data
+function useMapOverlays() {
+  const [gates, setGates] = useState<GateData[]>([]);
+  const [trails, setTrails] = useState<TrailData[]>([]);
+  const [pins, setPins] = useState<PinData[]>([]);
+
+  useEffect(() => {
+    fetch("/api/gates").then(r => r.json()).then(setGates).catch(() => {});
+    fetch("/api/trails").then(r => r.json()).then(setTrails).catch(() => {});
+    fetch("/api/pins").then(r => r.json()).then(setPins).catch(() => {});
+  }, []);
+
+  return { gates, trails, pins };
+}
+
 // Main component
-function InteractiveMapInner() {
-  const [hoveredStore, setHoveredStore] = useState<Store | null>(null);
-  const [selectedStore, setSelectedStore] = useState<Store | null>(null);
+function InteractiveMapInner({ stores, selectedCategories }: InteractiveMapProps) {
+  const [hoveredStore, setHoveredStore] = useState<StoreWithEvents | null>(null);
+  const [selectedStore, setSelectedStore] = useState<StoreWithEvents | null>(null);
   const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(null);
   const { position: userPosition, status: gpsStatus, requestLocation } = useCurrentLocation();
+  const { gates, trails, pins } = useMapOverlays();
+  const { isEnabled } = useFeatureFlags();
 
   const handleHover = useCallback(
-    (store: Store | null, screenPos: { x: number; y: number } | null) => {
+    (store: StoreWithEvents | null, screenPos: { x: number; y: number } | null) => {
       setHoveredStore(store);
       setTooltipPos(screenPos);
     },
     []
   );
 
-  const handleSelect = useCallback((store: Store) => {
+  const handleSelect = useCallback((store: StoreWithEvents) => {
     setSelectedStore((prev) => (prev?.id === store.id ? null : store));
   }, []);
 
@@ -204,6 +264,13 @@ function InteractiveMapInner() {
         dpr={[1, 2]}
       >
         <Scene
+          stores={stores}
+          selectedCategories={selectedCategories}
+          gates={gates}
+          trails={trails}
+          pins={pins}
+          showGates={isEnabled("gates_enabled")}
+          showTrails={isEnabled("trails_enabled")}
           onHover={handleHover}
           onSelect={handleSelect}
           selectedStore={selectedStore}
@@ -274,9 +341,12 @@ function InteractiveMapInner() {
   );
 }
 
-const InteractiveMap = dynamic(() => Promise.resolve(InteractiveMapInner), {
-  ssr: false,
-  loading: () => <LoadingOverlay />,
-});
+const InteractiveMap = dynamic(
+  () => Promise.resolve(InteractiveMapInner),
+  {
+    ssr: false,
+    loading: () => <LoadingOverlay />,
+  }
+) as React.ComponentType<InteractiveMapProps>;
 
 export default InteractiveMap;

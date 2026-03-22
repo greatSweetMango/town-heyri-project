@@ -1,6 +1,6 @@
 "use client";
 
-import { Store, Category } from "@/types";
+import { StoreWithEvents, Category } from "@/types";
 
 /**
  * Euclidean distance between two position points.
@@ -25,29 +25,33 @@ export function getWalkingTime(distance: number): number {
 }
 
 /**
- * Filter stores by category. Returns all stores if category is null.
+ * Filter stores by categories. Returns all stores if categories array is empty.
  */
-export function getStoresByCategory(
-  stores: Store[],
-  category: Category | null
-): Store[] {
-  if (!category) return stores;
-  return stores.filter((s) => s.category === category);
+export function getStoresByCategories(
+  stores: StoreWithEvents[],
+  categories: Category[]
+): StoreWithEvents[] {
+  if (categories.length === 0) return stores;
+  return stores.filter((s) => categories.includes(s.category));
 }
 
 /**
  * Get nearby stores sorted by distance, excluding the reference store itself.
+ * Uses positionX/positionY (DB fields).
  */
 export function getNearbyStores(
-  store: Store,
-  allStores: Store[],
+  store: StoreWithEvents,
+  allStores: StoreWithEvents[],
   limit: number = 3
-): Store[] {
+): StoreWithEvents[] {
   return allStores
     .filter((s) => s.id !== store.id)
     .map((s) => ({
       store: s,
-      distance: getDistance(store.position, s.position),
+      distance: getDistance(
+        { x: store.positionX, y: store.positionY },
+        { x: s.positionX, y: s.positionY }
+      ),
     }))
     .sort((a, b) => a.distance - b.distance)
     .slice(0, limit)

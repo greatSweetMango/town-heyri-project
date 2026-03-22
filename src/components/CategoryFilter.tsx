@@ -1,12 +1,11 @@
 "use client";
 
-import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Category, CATEGORY_CONFIG } from "@/types";
 
 interface CategoryFilterProps {
-  onCategoryChange: (category: Category | null) => void;
-  activeCategory?: Category | null;
+  onCategoryChange: (categories: Category[]) => void;
+  activeCategories: Category[];
 }
 
 const categories = Object.entries(CATEGORY_CONFIG) as [
@@ -16,31 +15,37 @@ const categories = Object.entries(CATEGORY_CONFIG) as [
 
 export default function CategoryFilter({
   onCategoryChange,
-  activeCategory = null,
+  activeCategories,
 }: CategoryFilterProps) {
-  const [selected, setSelected] = useState<Category | null>(
-    activeCategory ?? null
-  );
-
-  const handleSelect = (category: Category | null) => {
-    setSelected(category);
-    onCategoryChange(category);
+  const handleToggle = (category: Category) => {
+    const isActive = activeCategories.includes(category);
+    if (isActive) {
+      onCategoryChange(activeCategories.filter((c) => c !== category));
+    } else {
+      onCategoryChange([...activeCategories, category]);
+    }
   };
+
+  const handleReset = () => {
+    onCategoryChange([]);
+  };
+
+  const isAllSelected = activeCategories.length === 0;
 
   return (
     <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
       <motion.button
         layout
-        onClick={() => handleSelect(null)}
+        onClick={handleReset}
         className="shrink-0 rounded-full px-4 py-2 text-sm font-medium transition-colors whitespace-nowrap"
         style={{
           backgroundColor:
-            selected === null ? "var(--color-gold)" : "var(--color-charcoal)",
+            isAllSelected ? "var(--color-gold)" : "var(--color-charcoal)",
           color:
-            selected === null
+            isAllSelected
               ? "var(--color-charcoal)"
               : "var(--color-cream)",
-          border: `1px solid ${selected === null ? "var(--color-gold)" : "var(--color-glass-border)"}`,
+          border: `1px solid ${isAllSelected ? "var(--color-gold)" : "var(--color-glass-border)"}`,
         }}
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
@@ -50,12 +55,12 @@ export default function CategoryFilter({
 
       <AnimatePresence>
         {categories.map(([key, config]) => {
-          const isActive = selected === key;
+          const isActive = activeCategories.includes(key);
           return (
             <motion.button
               key={key}
               layout
-              onClick={() => handleSelect(key)}
+              onClick={() => handleToggle(key)}
               className="shrink-0 rounded-full px-4 py-2 text-sm font-medium transition-colors whitespace-nowrap"
               style={{
                 backgroundColor: isActive

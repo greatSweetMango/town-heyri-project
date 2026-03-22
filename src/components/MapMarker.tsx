@@ -3,16 +3,18 @@
 import { useRef, useState, useCallback } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
-import type { Store } from "@/types";
+import type { StoreWithEvents } from "@/types";
 import { CATEGORY_CONFIG } from "@/types";
 
 interface MapMarkerProps {
-  store: Store;
+  store: StoreWithEvents;
   mapWidth: number;
   mapHeight: number;
-  onHover: (store: Store | null, screenPos: { x: number; y: number } | null) => void;
-  onClick: (store: Store) => void;
+  onHover: (store: StoreWithEvents | null, screenPos: { x: number; y: number } | null) => void;
+  onClick: (store: StoreWithEvents) => void;
   isSelected: boolean;
+  isOpen: boolean;
+  hasActiveEvent: boolean;
 }
 
 export default function MapMarker({
@@ -22,18 +24,23 @@ export default function MapMarker({
   onHover,
   onClick,
   isSelected,
+  isOpen,
+  hasActiveEvent,
 }: MapMarkerProps) {
   const groupRef = useRef<THREE.Group>(null);
   const glowRef = useRef<THREE.Mesh>(null);
+  const eventGlowRef = useRef<THREE.Mesh>(null);
   const [hovered, setHovered] = useState(false);
   const targetScale = useRef(1);
 
   const config = CATEGORY_CONFIG[store.category];
   const color = new THREE.Color(config.color);
+  const closedGray = new THREE.Color("#888888");
+  const eventGoldColor = new THREE.Color("#C9A84C");
 
   // Convert percentage position (0-100) to world coordinates
-  const worldX = (store.position.x / 100 - 0.5) * mapWidth;
-  const worldZ = (store.position.y / 100 - 0.5) * mapHeight;
+  const worldX = (store.positionX / 100 - 0.5) * mapWidth;
+  const worldZ = (store.positionY / 100 - 0.5) * mapHeight;
 
   const pinRadius = 0.25;
   const stemHeight = 0.4;
@@ -56,6 +63,15 @@ export default function MapMarker({
       const mat = glowRef.current.material as THREE.MeshBasicMaterial;
       const targetOpacity = hovered || isSelected ? 0.5 : 0;
       mat.opacity += (targetOpacity - mat.opacity) * Math.min(delta * 8, 1);
+    }
+
+    // Event glow pulsing animation
+    if (eventGlowRef.current && hasActiveEvent) {
+      const mat = eventGlowRef.current.material as THREE.MeshBasicMaterial;
+      const pulse = (Math.sin(state.clock.elapsedTime * 3) + 1) / 2; // 0 to 1
+      mat.opacity = 0.2 + pulse * 0.45;
+      const scale = 1 + pulse * 0.3;
+      eventGlowRef.current.scale.set(scale, scale, 1);
     }
   });
 
@@ -100,6 +116,11 @@ export default function MapMarker({
     [store, onClick, hovered, onHover, projectToScreen]
   );
 
+  // Determine visual properties based on isOpen
+  const pinColor = isOpen ? color : closedGray;
+  const pinEmissiveIntensity = isOpen ? (hovered || isSelected ? 0.5 : 0.1) : 0;
+  const pinOpacity = isOpen ? 1 : 0.4;
+
   return (
     <group
       ref={groupRef}
@@ -114,7 +135,7 @@ export default function MapMarker({
         <meshBasicMaterial
           color="#000000"
           transparent
-          opacity={0.25}
+          opacity={isOpen ? 0.25 : 0.1}
           depthWrite={false}
         />
       </mesh>
@@ -123,7 +144,7 @@ export default function MapMarker({
       <mesh ref={glowRef} position={[0, 0.005, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <ringGeometry args={[0.2, 0.55, 32]} />
         <meshBasicMaterial
-          color={color}
+          color={pinColor}
           transparent
           opacity={0}
           side={THREE.DoubleSide}
@@ -131,28 +152,54 @@ export default function MapMarker({
         />
       </mesh>
 
+      {/* Event glow ring (golden pulsing) — only when hasActiveEvent */}
+      {hasActiveEvent && (
+        <mesh ref={eventGlowRef} position={[0, 0.006, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <ringGeometry args={[0.35, 0.7, 32]} />
+          <meshBasicMaterial
+            color={eventGoldColor}
+            transparent
+            opacity={0.3}
+            side={THREE.DoubleSide}
+            depthWrite={false}
+          />
+        </mesh>
+      )}
+
       {/* Pin stem */}
       <mesh position={[0, stemHeight / 2, 0]}>
         <cylinderGeometry args={[0.04, 0.06, stemHeight, 8]} />
-        <meshStandardMaterial color={color} roughness={0.4} metalness={0.3} />
+        <meshStandardMaterial
+          color={pinColor}
+          roughness={0.4}
+          metalness={0.3}
+          transparent={!isOpen}
+          opacity={pinOpacity}
+        />
       </mesh>
 
       {/* Pin head (sphere) */}
       <mesh position={[0, stemHeight + pinRadius * 0.8, 0]}>
         <sphereGeometry args={[pinRadius, 20, 20]} />
         <meshStandardMaterial
-          color={color}
-          emissive={color}
-          emissiveIntensity={hovered || isSelected ? 0.5 : 0.1}
+          color={pinColor}
+          emissive={pinColor}
+          emissiveIntensity={pinEmissiveIntensity}
           roughness={0.25}
           metalness={0.3}
+          transparent={!isOpen}
+          opacity={pinOpacity}
         />
       </mesh>
 
       {/* Category icon label (using small sphere as indicator on top) */}
       <mesh position={[0, stemHeight + pinRadius * 2.2, 0]}>
         <sphereGeometry args={[0.06, 8, 8]} />
-        <meshBasicMaterial color="white" />
+        <meshBasicMaterial
+          color="white"
+          transparent={!isOpen}
+          opacity={pinOpacity}
+        />
       </mesh>
 
       {/* LARGE invisible hit area for easy interaction (especially mobile) */}
