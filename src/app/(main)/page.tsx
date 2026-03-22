@@ -12,6 +12,8 @@ import { Category, CATEGORY_CONFIG, StoreWithEvents } from "@/types";
 import { useStores } from "@/hooks/useStores";
 import { useFeatureFlags } from "@/hooks/useFeatureFlags";
 import CategoryFilter from "@/components/CategoryFilter";
+import StoreList from "@/components/StoreList";
+import StoreDetailPanel from "@/components/StoreDetailPanel";
 import AnnouncementBanner from "@/components/AnnouncementBanner";
 
 const InteractiveMap = dynamic(() => import("@/components/InteractiveMap"), {
@@ -216,6 +218,7 @@ function SectionReveal({
 /* ───── Map Section ───── */
 function MapSection({ stores }: { stores: StoreWithEvents[] }) {
   const [selectedCategories, setSelectedCategories] = useState<Category[]>([]);
+  const [selectedStore, setSelectedStore] = useState<StoreWithEvents | null>(null);
   const { isEnabled } = useFeatureFlags();
   const useKakaoMap = isEnabled("kakao_map");
 
@@ -225,6 +228,14 @@ function MapSection({ stores }: { stores: StoreWithEvents[] }) {
     },
     []
   );
+
+  const handleStoreSelect = useCallback((store: StoreWithEvents) => {
+    setSelectedStore(store);
+  }, []);
+
+  const handleDetailClose = useCallback(() => {
+    setSelectedStore(null);
+  }, []);
 
   return (
     <SectionReveal className="px-4 py-20 md:px-8" >
@@ -258,7 +269,22 @@ function MapSection({ stores }: { stores: StoreWithEvents[] }) {
             />
           )}
         </div>
+
+        {/* Store list below map */}
+        <StoreList
+          stores={stores}
+          selectedCategories={selectedCategories}
+          onStoreSelect={handleStoreSelect}
+        />
       </div>
+
+      {/* Store detail panel */}
+      <StoreDetailPanel
+        store={selectedStore}
+        allStores={stores}
+        onClose={handleDetailClose}
+        onStoreSelect={handleStoreSelect}
+      />
     </SectionReveal>
   );
 }

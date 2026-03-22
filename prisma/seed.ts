@@ -145,6 +145,224 @@ async function main() {
     await prisma.trail.createMany({ data: newTrails, skipDuplicates: true });
   }
 
+  // ──────────────────────────────────────────────
+  // 6. Shop Owner Accounts (5개)
+  // ──────────────────────────────────────────────
+  const allStores = await prisma.store.findMany();
+  const storeByName = (name: string) => allStores.find((s) => s.name === name);
+
+  const ownerPassword = await bcrypt.hash("owner1234!", 10);
+
+  const ownerStoreMap = [
+    { email: "owner1@heyri.com", name: "포레스트 커피 점주", storeName: "포레스트 커피" },
+    { email: "owner2@heyri.com", name: "도자공방 흙 점주", storeName: "도자공방 흙" },
+    { email: "owner3@heyri.com", name: "숲속화덕피자 점주", storeName: "숲속화덕피자" },
+    { email: "owner4@heyri.com", name: "블루메미술관 관장", storeName: "블루메미술관" },
+    { email: "owner5@heyri.com", name: "가죽공방 손끝 점주", storeName: "가죽공방 손끝" },
+  ];
+
+  const shopOwners: Array<{ id: string; email: string; storeId: string | null }> = [];
+
+  for (const o of ownerStoreMap) {
+    const store = storeByName(o.storeName);
+    if (!store) continue;
+    const user = await prisma.user.upsert({
+      where: { email: o.email },
+      update: {},
+      create: {
+        email: o.email,
+        password: ownerPassword,
+        name: o.name,
+        role: "SHOP_OWNER",
+        storeId: store.id,
+      },
+    });
+    shopOwners.push({ id: user.id, email: user.email, storeId: store.id });
+  }
+
+  // Helper to get owner/store id by store name
+  const ownerByStore = (storeName: string) =>
+    shopOwners.find((o) => o.storeId === storeByName(storeName)?.id);
+
+  // Admin user for board posts
+  const adminUser = await prisma.user.findUnique({ where: { email: adminEmail } });
+
+  // ──────────────────────────────────────────────
+  // 7. Events (8개)
+  // ──────────────────────────────────────────────
+  const now = new Date();
+  const addDays = (d: Date, days: number) => {
+    const result = new Date(d);
+    result.setDate(result.getDate() + days);
+    return result;
+  };
+
+  const eventsData = [
+    { title: "봄맞이 도자기 체험 할인", description: "봄을 맞아 물레 체험과 핸드빌딩 클래스를 20% 할인합니다. 예약 필수!", category: "workshop", storeName: "도자공방 흙", startDate: now, endDate: addDays(now, 7) },
+    { title: "갤러리 카페 모먼트 신진작가전", description: "신진 작가 5인의 회화 및 사진 작품을 만나보세요. 작가와의 대화 세션 포함.", category: "exhibition", storeName: "갤러리 카페 모먼트", startDate: now, endDate: addDays(now, 14) },
+    { title: "헤이리 플리마켓", description: "헤이리 마을 작가와 주민들이 참여하는 플리마켓. 수공예품, 빈티지, 먹거리 가득!", category: "fleamarket", storeName: "헤이리 안내센터", startDate: addDays(now, 3), endDate: addDays(now, 4) },
+    { title: "블루메미술관 특별전: 빛과 그림자", description: "빛과 그림자를 주제로 한 설치 미술 특별전. 국내외 작가 10인 참여.", category: "exhibition", storeName: "블루메미술관", startDate: now, endDate: addDays(now, 30) },
+    { title: "숲속화덕피자 런치 특가", description: "평일 런치 타임(11:30-14:00) 마르게리따 피자 + 음료 세트 15,000원!", category: "promotion", storeName: "숲속화덕피자", startDate: now, endDate: addDays(now, 7) },
+    { title: "가죽공방 커플 원데이클래스", description: "커플이 함께 가죽 키링과 카드지갑을 만드는 원데이클래스. 사전 예약 필수.", category: "workshop", storeName: "가죽공방 손끝", startDate: addDays(now, 5), endDate: addDays(now, 5) },
+    { title: "헤이리 로스터리 커핑 클래스", description: "싱글오리진 원두 4종을 비교 시음하며 커피의 풍미를 배우는 클래스.", category: "workshop", storeName: "헤이리 로스터리", startDate: addDays(now, 2), endDate: addDays(now, 2) },
+    { title: "한길책박물관 저자 강연회", description: "『나무 도시』 저자 초청 강연. 건축과 자연의 공존에 대한 이야기.", category: "lecture", storeName: "한길책박물관", startDate: addDays(now, 7), endDate: addDays(now, 7) },
+  ];
+
+  const existingEvents = await prisma.event.findMany({ select: { title: true } });
+  const existingEventTitles = new Set(existingEvents.map((e) => e.title));
+
+  for (const ev of eventsData) {
+    if (existingEventTitles.has(ev.title)) continue;
+    const store = storeByName(ev.storeName);
+    if (!store) continue;
+    await prisma.event.create({
+      data: {
+        storeId: store.id,
+        title: ev.title,
+        description: ev.description,
+        category: ev.category,
+        startDate: ev.startDate,
+        endDate: ev.endDate,
+        isActive: true,
+      },
+    });
+  }
+
+  // ──────────────────────────────────────────────
+  // 8. Board Posts (12개)
+  // ──────────────────────────────────────────────
+  const boardPostsData = [
+    { title: "봄 시즌 신메뉴 출시!", content: "포레스트 커피에서 봄 한정 벚꽃 라떼와 딸기 크루아상을 선보입니다. 3월 한 달간 첫 주문 시 10% 할인!", category: "newmenu", ownerEmail: "owner1@heyri.com", storeName: "포레스트 커피" },
+    { title: "3월 플리마켓 참여 점포 모집", content: "3월 넷째 주 토요일에 열리는 헤이리 플리마켓에 참여할 점포를 모집합니다. 수공예, 빈티지, 푸드 분야 누구나 신청 가능합니다.", category: "fleamarket", ownerEmail: "owner1@heyri.com", storeName: "포레스트 커피" },
+    { title: "블루메미술관 특별전 안내", content: "빛과 그림자를 주제로 한 특별전이 한 달간 진행됩니다. 국내외 설치미술 작가 10인의 작품을 만나보세요. 매주 토요일 도슨트 투어 운영.", category: "exhibition", ownerEmail: "owner4@heyri.com", storeName: "블루메미술관" },
+    { title: "주말 라이브 공연 안내", content: "매주 토요일 저녁 7시, 갤러리 카페 모먼트에서 어쿠스틱 라이브 공연이 열립니다. 음료 주문 시 무료 관람!", category: "performance", ownerEmail: "owner1@heyri.com", storeName: "갤러리 카페 모먼트" },
+    { title: "헤이리마을 봄맞이 대청소 안내", content: "3월 마지막 일요일 오전 10시부터 마을 전체 대청소를 진행합니다. 자원봉사자 분들께 점심과 음료를 제공합니다.", category: "announcement", ownerEmail: null, storeName: null },
+    { title: "도자공방 원데이클래스 예약 오픈", content: "4월 원데이클래스 예약이 시작되었습니다. 물레 체험, 핸드빌딩, 도자 페인팅 중 선택 가능합니다. 소요 시간 약 2시간.", category: "general", ownerEmail: "owner2@heyri.com", storeName: "도자공방 흙" },
+    { title: "숲속화덕피자 신메뉴: 트러플 피자", content: "이탈리아산 트러플 오일을 듬뿍 올린 트러플 머쉬룸 피자가 출시되었습니다. 진한 풍미가 일품입니다.", category: "newmenu", ownerEmail: "owner3@heyri.com", storeName: "숲속화덕피자" },
+    { title: "가죽공방 손끝 봄 신작 소개", content: "봄 컬러 베지터블 가죽으로 만든 카드지갑, 키링, 팔찌 신작을 소개합니다. 매장에서 직접 만져보세요.", category: "general", ownerEmail: "owner5@heyri.com", storeName: "가죽공방 손끝" },
+    { title: "헤이리 로스터리 원두 할인 이벤트", content: "이달의 원두 에티오피아 예가체프를 20% 할인 판매합니다. 200g 소분 포장도 가능합니다.", category: "newmenu", ownerEmail: "owner1@heyri.com", storeName: "헤이리 로스터리" },
+    { title: "현대어린이책미술관 봄 특별 프로그램", content: "어린이 대상 그림책 만들기 워크숍이 4월 매주 수요일에 진행됩니다. 5세~10세 대상, 사전 예약 필수.", category: "exhibition", ownerEmail: "owner4@heyri.com", storeName: "현대어린이책미술관" },
+    { title: "포토갤러리 빛 사진 공모전", content: "헤이리 마을을 주제로 한 사진 공모전을 개최합니다. 입선작은 갤러리에 한 달간 전시됩니다. 접수 기간: 3월 20일~4월 10일.", category: "exhibition", ownerEmail: "owner4@heyri.com", storeName: "포토갤러리 빛" },
+    { title: "캔들공방 향기 시즌 한정 클래스", content: "봄꽃 향을 담은 소이캔들 만들기 클래스를 오픈합니다. 벚꽃, 라일락, 프리지아 중 선택 가능. 약 1.5시간 소요.", category: "general", ownerEmail: "owner2@heyri.com", storeName: "캔들공방 향기" },
+  ];
+
+  const existingPosts = await prisma.boardPost.findMany({ select: { title: true } });
+  const existingPostTitles = new Set(existingPosts.map((p) => p.title));
+
+  for (const post of boardPostsData) {
+    if (existingPostTitles.has(post.title)) continue;
+    let authorId: string | undefined;
+    if (post.ownerEmail === null) {
+      authorId = adminUser?.id;
+    } else {
+      const owner = shopOwners.find((o) => o.email === post.ownerEmail);
+      authorId = owner?.id;
+    }
+    if (!authorId) continue;
+
+    const store = post.storeName ? storeByName(post.storeName) : null;
+    await prisma.boardPost.create({
+      data: {
+        authorId,
+        storeId: store?.id || null,
+        title: post.title,
+        content: post.content,
+        category: post.category,
+        images: [],
+      },
+    });
+  }
+
+  // ──────────────────────────────────────────────
+  // 9. Stories (10개)
+  // ──────────────────────────────────────────────
+  const storyExpiry = addDays(now, 1); // 24 hours from now
+
+  const storiesData = [
+    { text: "오늘의 디저트: 딸기 크레이프 🍓 따뜻한 커피와 함께 즐겨보세요!", category: "menu", ownerEmail: "owner1@heyri.com", storeName: "포레스트 커피" },
+    { text: "새로운 전시 작품이 도착했어요! 이번 주부터 관람 가능합니다.", category: "exhibition", ownerEmail: "owner4@heyri.com", storeName: "블루메미술관" },
+    { text: "오늘 날씨가 좋아서 테라스 오픈했습니다 ☀️ 산책 후 들러주세요!", category: "daily", ownerEmail: "owner1@heyri.com", storeName: "포레스트 커피" },
+    { text: "수제 파스타 만드는 중... 🍝 오늘의 스페셜은 봄나물 크림 파스타!", category: "menu", ownerEmail: "owner3@heyri.com", storeName: "숲속화덕피자" },
+    { text: "가마에서 갓 꺼낸 도자기들 🏺 자연유약의 색감이 정말 아름다워요.", category: "craft", ownerEmail: "owner2@heyri.com", storeName: "도자공방 흙" },
+    { text: "오늘 로스팅한 에티오피아 예가체프, 블루베리 향이 가득합니다 ☕", category: "menu", ownerEmail: "owner1@heyri.com", storeName: "헤이리 로스터리" },
+    { text: "커플 가죽 키링 완성작! 세상에 하나뿐인 선물 💝", category: "craft", ownerEmail: "owner5@heyri.com", storeName: "가죽공방 손끝" },
+    { text: "화덕에 장작 불 지피는 중 🔥 11시 30분부터 오픈합니다!", category: "daily", ownerEmail: "owner3@heyri.com", storeName: "숲속화덕피자" },
+    { text: "도자 물레 체험 진행 중! 초보자도 멋진 작품을 만들 수 있어요 🎨", category: "craft", ownerEmail: "owner2@heyri.com", storeName: "도자공방 흙" },
+    { text: "봄 신작 가죽 카드지갑 🌸 파스텔 컬러로 준비했어요.", category: "product", ownerEmail: "owner5@heyri.com", storeName: "가죽공방 손끝" },
+  ];
+
+  const existingStories = await prisma.story.count();
+  if (existingStories === 0) {
+    for (const s of storiesData) {
+      const owner = shopOwners.find((o) => o.email === s.ownerEmail);
+      const store = storeByName(s.storeName);
+      if (!owner || !store) continue;
+      await prisma.story.create({
+        data: {
+          authorId: owner.id,
+          storeId: store.id,
+          text: s.text,
+          category: s.category,
+          expiresAt: storyExpiry,
+        },
+      });
+    }
+  }
+
+  // ──────────────────────────────────────────────
+  // 10. Coupons (6개)
+  // ──────────────────────────────────────────────
+  const couponsData = [
+    { title: "아메리카노 500원 할인", description: "아메리카노(핫/아이스) 주문 시 500원 할인. 1인 1회.", discount: "500원", storeName: "포레스트 커피", validUntil: addDays(now, 30) },
+    { title: "체험 10% 할인", description: "도자기 원데이클래스 체험비 10% 할인. 사전 예약 시 적용.", discount: "10%", storeName: "도자공방 흙", validUntil: addDays(now, 30) },
+    { title: "2인 식사 시 디저트 서비스", description: "2인 이상 식사 주문 시 수제 티라미수 1개 무료 제공.", discount: "디저트 무료", storeName: "숲속화덕피자", validUntil: addDays(now, 14) },
+    { title: "전시 관람 20% 할인", description: "블루메미술관 특별전 관람료 20% 할인. 현장 제시 필수.", discount: "20%", storeName: "블루메미술관", validUntil: addDays(now, 30) },
+    { title: "원두 1kg 구매 시 드립백 증정", description: "원두 1kg 구매 시 시그니처 드립백 5개 증정.", discount: "드립백 5개 증정", storeName: "헤이리 로스터리", validUntil: addDays(now, 21) },
+    { title: "가죽 키링 만들기 무료 체험", description: "첫 방문 고객 대상 미니 가죽 키링 만들기 무료 체험. 소요 약 30분.", discount: "무료 체험", storeName: "가죽공방 손끝", validUntil: addDays(now, 30) },
+  ];
+
+  const existingCoupons = await prisma.coupon.findMany({ select: { title: true } });
+  const existingCouponTitles = new Set(existingCoupons.map((c) => c.title));
+
+  for (const c of couponsData) {
+    if (existingCouponTitles.has(c.title)) continue;
+    const store = storeByName(c.storeName);
+    if (!store) continue;
+    await prisma.coupon.create({
+      data: {
+        storeId: store.id,
+        title: c.title,
+        description: c.description,
+        discount: c.discount,
+        validUntil: c.validUntil,
+        isActive: true,
+      },
+    });
+  }
+
+  // ──────────────────────────────────────────────
+  // 11. Announcements (3개)
+  // ──────────────────────────────────────────────
+  const announcementsData = [
+    { title: "헤이리마을 봄 축제 안내", content: "4월 첫째 주말, 헤이리마을 봄 축제가 열립니다! 라이브 공연, 플리마켓, 체험 부스 등 다양한 프로그램이 준비되어 있습니다. 주차장이 혼잡할 수 있으니 대중교통 이용을 권장합니다." },
+    { title: "3월 넷째주 주차장 공사 안내", content: "제1주차장 노면 보수 공사로 인해 3월 넷째 주(3/24~3/28) 동안 제1주차장 이용이 제한됩니다. 제2, 제3주차장을 이용해주세요. 불편을 드려 죄송합니다." },
+    { title: "타운헤이리 앱 오픈 안내", content: "헤이리마을 방문객을 위한 타운헤이리 서비스가 오픈했습니다! 마을 지도, 매장 정보, 이벤트, 쿠폰 등을 한눈에 확인하세요. 많은 이용 부탁드립니다." },
+  ];
+
+  const existingAnnouncements = await prisma.announcement.findMany({ select: { title: true } });
+  const existingAnnouncementTitles = new Set(existingAnnouncements.map((a) => a.title));
+
+  for (const a of announcementsData) {
+    if (existingAnnouncementTitles.has(a.title)) continue;
+    await prisma.announcement.create({
+      data: {
+        title: a.title,
+        content: a.content,
+        isActive: true,
+      },
+    });
+  }
+
   console.log("Seed completed successfully!");
 }
 
