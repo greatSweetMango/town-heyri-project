@@ -53,14 +53,16 @@ export async function GET() {
   ]);
 
   // Resolve store names
-  const storeIds = topStoreViews.map((v) => v.storeId);
+  const storeIds = topStoreViews.map((v: { storeId: string }) => v.storeId);
   const storesData = await prisma.store.findMany({
     where: { id: { in: storeIds } },
     select: { id: true, name: true },
   });
-  const storeMap = Object.fromEntries(storesData.map((s) => [s.id, s.name]));
+  const storeMap: Record<string, string> = Object.fromEntries(
+    storesData.map((s: { id: string; name: string }) => [s.id, s.name])
+  );
 
-  const topStores = topStoreViews.map((v) => ({
+  const topStores = topStoreViews.map((v: { storeId: string; _count: { id: number } }) => ({
     storeId: v.storeId,
     storeName: storeMap[v.storeId] || "알 수 없음",
     views: v._count.id,

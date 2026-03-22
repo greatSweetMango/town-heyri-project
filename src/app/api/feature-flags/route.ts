@@ -5,7 +5,7 @@ import { auth } from "@/lib/auth";
 // GET: public - returns all flags
 export async function GET() {
   const flags = await prisma.featureFlag.findMany();
-  const result = Object.fromEntries(flags.map((f) => [f.name, f.enabled]));
+  const result = Object.fromEntries(flags.map((f: { name: string; enabled: boolean }) => [f.name, f.enabled]));
   return NextResponse.json(result);
 }
 

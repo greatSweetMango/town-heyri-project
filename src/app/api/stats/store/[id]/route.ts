@@ -55,7 +55,7 @@ export async function GET(
   }
 
   // Count views per day
-  for (const view of recentViews) {
+  for (const view of recentViews as { createdAt: Date }[]) {
     const key = new Date(view.createdAt).toISOString().split("T")[0];
     if (dailyMap[key] !== undefined) {
       dailyMap[key]++;
